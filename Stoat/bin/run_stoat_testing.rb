@@ -23,16 +23,17 @@ end
 def create_avd(avd_name="testAVD_1", sdk_version="android-18")
 
 	# check whether #avd_name already exist?
-	res = execute_shell_cmd("android list avd | grep #{avd_name}")
+	res = execute_shell_cmd("avdmanager list avd | grep #{avd_name}")
 
 	if (not res.strip.eql?("")) then # if exist and forced to create a new one, delete it
 		kill_avd() # make sure the avd is stopped
-		execute_shell_cmd_output("android delete avd -n #{avd_name}")
+		execute_shell_cmd_output("avdmanager delete avd -n #{avd_name}")
 		sleep 1 # wait a while
 	end
 	
 	# create the avd
-	execute_shell_cmd_output("echo no | android create avd -n #{avd_name} -t #{sdk_version} -c 512M -b x86 -s WXGA800-7in")
+	#avdmanager create avd -f -n testAVD_1 -k 'system-images;android-18;google_apis;x86' -b google_apis/x86 -c 512M -d 'Nexus 7'
+	execute_shell_cmd_output("echo no | avdmanager create avd --force --name #{avd_name} --package 'system-images;#{sdk_version};google_apis;x86' --abi google_apis/x86 --sdcard 512M --device 'Nexus 7'")
 	sleep 2
 
 end
@@ -98,7 +99,7 @@ end
 
 def cleanup()
 
-	execute_shell_cmd("for pid in $(ps | grep java | awk '{print $1}'); do kill -9 $pid; done")
+	execute_shell_cmd("for pid in $(ps a | grep 'Server.jar' | awk '{print $1}'); do kill -9 $pid; done")
   	execute_shell_cmd("for pid in $(ps | grep adb | awk '{print $1}'); do kill -9 $pid; done")
   	execute_shell_cmd("for pid in $(ps | grep sleep | awk '{print $1}'); do kill -9 $pid; done")
 end
@@ -108,7 +109,7 @@ def install_app(avd_serial, app_dir, apk_path)
 
 	if app_dir.end_with?(".apk") then
 		# this is a closed-source app
-		execute_shell_cmd("adb -s #{avd_serial} install -r #{app_dir}")
+		execute_shell_cmd("adb -s #{avd_serial} install -g -r #{app_dir}")
 	else
 		apk =""
 		if $project_type.eql?("ant") then # ant project
@@ -116,7 +117,7 @@ def install_app(avd_serial, app_dir, apk_path)
 	    else # gradle project
 		  	apk=apk_path
 		end
-		execute_shell_cmd("adb -s #{avd_serial} install -r #{apk}")
+		execute_shell_cmd("adb -s #{avd_serial} install -g -r #{apk}")
 		
 	end
 	
@@ -549,7 +550,7 @@ cleanup()
 if (not app_dir.eql?("")) && File.exist?(app_dir) then  # for testing one app at one time
 
 	if force_to_create then
-		create_avd(avd_name, avd_sdk_version, force_to_create)
+		create_avd(avd_name, avd_sdk_version)
 	end
 
 	if not is_real_device then # if no real device, use emulators
@@ -573,7 +574,7 @@ if (not app_dir.eql?("")) && File.exist?(app_dir) then  # for testing one app at
 elsif (not apps_list.eql?("")) && File.exist?(apps_list) then # for testing multiple apps listed in a file at one time
 
 	if force_to_create then
-		create_avd(avd_name, avd_sdk_version, force_to_create)
+		create_avd(avd_name, avd_sdk_version)
 	end
 
 	File.readlines(apps_list).each do |line|

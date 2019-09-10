@@ -2,7 +2,7 @@
 ## Ting Su <tsuletgo@gmail.com>
 ## All rights reserved.
 require_relative 'util'
-
+require 'time'
 
 # CrashReporter records app crashes at runtime. Once an app crash is detected, a bug report will be dumped, which contains the crash stack, 
 # the bug triggering trace, the screenshots, and the coverage meta data when the crash happens.
@@ -101,15 +101,21 @@ class CrashReporter
   def check_crash_details(lines)
     #puts "lines: #{lines}"
     lines.each_line do |l|
-        loc = l.index(":")
-        if loc != nil
-          length = l.length
-          core_line = l[(loc+1)..(length-1)].strip() # remove the logcat message head
-          #puts "core line: #{core_line}"
-          if core_line.start_with?("at") # check "at"
-            return true
-          end
-        end
+	# Fix: fix the adb logcat format compatibility issue
+        #loc = l.index(":")
+        #if loc != nil
+        #  length = l.length
+        #  core_line = l[(loc+1)..(length-1)].strip() # remove the logcat message head
+        #  #puts "core line: #{core_line}"
+        #  if core_line.start_with?("at") # check "at"
+        #    return true
+        #  end
+        #end
+
+	if l =~ /:\s+at #{package_name}/ then
+	  return true
+	end
+
     end
     return false
   end
@@ -118,7 +124,7 @@ class CrashReporter
     lines=UTIL.execute_shell_cmd("wc -l #{@logcat_file_name} | awk '{print $1}'").strip()
     puts "lines=#{lines}"
     # make sure the error is related to the app under test
-    lines=UTIL.execute_shell_cmd("grep #{@package_name} #{@logcat_file_name}").strip()
+    lines=UTIL.execute_shell_cmd("grep -a #{@package_name} #{@logcat_file_name}").strip()
     if not lines.eql?("") then
       if check_crash_details(lines) then
         @has_crash = true # set true
@@ -136,6 +142,7 @@ class CrashReporter
     UTIL.execute_shell_cmd("echo \"app code version: #{@app_code_version}\" >> #{@logcat_file_name}")
     UTIL.execute_shell_cmd("echo \"android sdk version: #{@androi_sdk_version}\" >> #{@logcat_file_name}")
     UTIL.execute_shell_cmd("echo \"product model: #{@ro_product_model}\" >> #{@logcat_file_name}")
+	UTIL.execute_shell_cmd("echo \"current time: #{@ro_product_model}\" >> #{@logcat_file_name}")
     UTIL.execute_shell_cmd("timeout 5s adb -s #{@dev_serial} shell dumpsys meminfo #{@package_name} >> #{@logcat_file_name}")
     UTIL.execute_shell_cmd("echo \"#{sep}\" >> #{@logcat_file_name}")
   end
